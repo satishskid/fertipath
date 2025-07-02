@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate overall progress
     const totalMilestones = patient.journeyMilestones.length;
-    const completedMilestones = patient.journeyMilestones.filter(m => m.status === 'completed').length;
+    const completedMilestones = patient.journeyMilestones.filter((m: any) => m.status === 'completed').length;
     const overallProgress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
     return NextResponse.json({
