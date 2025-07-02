@@ -1,0 +1,145 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/fertility-pathway-planner/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  patientCode String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Female partner profile
+  femaleAge        String?
+  femaleCycle      String?
+  femaleConditions String[] // Array of condition IDs
+  femaleLifestyle  Json?    // BMI, smoking, alcohol
+
+  // Male partner profile
+  maleAge        String?
+  maleConditions String[]
+
+  // Couple's fertility history
+  timeTrying           String?
+  previousTreatments   String?
+  fertilityHistory     Json?
+
+  // Holistic assessment
+  emotionalState   String?
+  financialComfort String?
+
+  // Medical files and analysis
+  medicalFiles    MedicalFile[]
+  analysisResults AnalysisResult[]
+  timelines       Timeline[]
+  pathways        TreatmentPathway[]
+  recommendations ClinicalRecommendation[]
+
+  @@map("patients")
+}
+
+model MedicalFile {
+  id        String   @id @default(cuid())
+  patientId String
+  fileName  String
+  fileType  String
+  fileSize  Int
+  fileUrl   String
+  category  String   // 'document', 'ultrasound', 'sperm_analysis', 'embryo_image'
+  uploadedAt DateTime @default(now())
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // AI extraction results
+  extractedData Json?
+  analysisStatus String @default("pending") // pending, processing, completed, failed
+  
+  @@map("medical_files")
+}
+
+model Timeline {
+  id        String   @id @default(cuid())
+  patientId String
+  date      DateTime
+  title     String
+  category  String   // consultation, lab_results, treatment, procedure
+  details   String?
+  sourceFile String? // Reference to source medical file
+  extractedData Json?
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("timelines")
+}
+
+model AnalysisResult {
+  id        String   @id @default(cuid())
+  patientId String
+  fileId    String?
+  analysisType String  // document_analysis, vision_analysis, pathway_calculation
+  results   Json
+  confidence Float?
+  createdAt DateTime @default(now())
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("analysis_results")
+}
+
+model TreatmentPathway {
+  id          String   @id @default(cuid())
+  patientId   String
+  name        String   // IUI, FET, IVF_ICSI, IVF_PGT_A
+  description String
+  successRate Float
+  timeline    String
+  costMin     Int      // in INR
+  costMax     Int      // in INR
+  suitability Float
+  pros        String[]
+  cons        String[]
+  recommendation String?
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("treatment_pathways")
+}
+
+model AIConfiguration {
+  id        String   @id @default(cuid())
+  provider  String   @unique // 'gemini', 'gemma3', 'fallback'
+  isActive  Boolean  @default(false)
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("ai_configurations")
+}
+
+model ClinicalRecommendation {
+  id             String   @id @default(cuid())
+  patientId      String
+  category       String   // additional_tests, lifestyle, treatment_considerations
+  title          String
+  description    String
+  priority       String   // high, medium, low
+  source         String   // ai_analysis, clinical_guidelines, patient_history
+  isActionable   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("clinical_recommendations")
+}
