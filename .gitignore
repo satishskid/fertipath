@@ -2,21 +2,29 @@
 .next
 .cache
 .build
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-!.yarn/cache
-.yarn/build-state.yml
-.yarn/install-state.gz
+# Yarn files (removed - using npm only)
+# .yarn/*
+# !.yarn/patches
+# !.yarn/plugins
+# !.yarn/releases
+# !.yarn/sdks
+# !.yarn/versions
+# !.yarn/cache
+# .yarn/build-state.yml
+# .yarn/install-state.gz
+
+# Build outputs
 dist
 target
 out
 .deploy
-.logs
+.next
+.cache
+.build
+
+# Logs
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+app/.env
