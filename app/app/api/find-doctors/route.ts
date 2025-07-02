@@ -1,8 +1,9 @@
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { safePrisma, isDatabaseAvailable, safeDbOperation } from '@/lib/safePrisma';
 
 // Sample doctor data - in production, this would come from a medical directory API
 const SAMPLE_DOCTORS = [
@@ -246,10 +247,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find patient
-    const patient = await prisma.patient.findUnique({
-      where: { patientCode }
-    });
+    // Check if database is available
+    if (!isDatabaseAvailable()) {
+      console.log('Database not available during build time, returning sample data');
+      
+      // Calculate distances and match scores for all doctors
+      const doctorsWithScores = SAMPLE_DOCTORS.map(doctor => {
+        const distance = calculateDistance(zipCode, doctor.zipCode);
+        const { score, reasons } = calculateMatchScore(doctor, {
+          preferredGender,
+          experienceLevel,
+          specialization,
+          maxDistance,
+          acceptsInsurance,
+          offersTelemedicine
+        });
+        
+        return {
+          ...doctor,
+          id: Math.random().toString(36).substr(2, 9), // Generate temporary ID
+          distance,
+          matchScore: score,
+          matchReasons: reasons,
+          matchReason: reasons.join('; ')
+        };
+      });
+
+      // Sort by match score and distance
+      const sortedDoctors = doctorsWithScores.sort((a, b) => {
+        if (Math.abs(a.matchScore - b.matchScore) < 5) {
+          return a.distance - b.distance;
+        }
+        return b.matchScore - a.matchScore;
+      });
+
+      const recommendations = sortedDoctors.slice(0, 10);
+
+      return NextResponse.json({
+        success: true,
+        recommendations: recommendations,
+        searchCriteria: {
+          zipCode,
+          preferredGender,
+          experienceLevel,
+          specialization,
+          maxDistance,
+          acceptsInsurance,
+          offersTelemedicine
+        },
+        message: `Found ${recommendations.length} doctor recommendations based on your preferences`,
+        note: 'Using sample data - database not available'
+      });
+    }
+
+    // Find patient using safe database operation
+    const patient = await safeDbOperation(
+      async (prisma) => await prisma.patient.findUnique({
+        where: { patientCode }
+      }),
+      null
+    );
 
     if (!patient) {
       return NextResponse.json(
@@ -290,64 +347,80 @@ export async function POST(request: NextRequest) {
     // Take top 10 recommendations
     const recommendations = sortedDoctors.slice(0, 10);
 
-    // Save recommendations to database
-    const savedRecommendations = [];
-    for (const doctor of recommendations) {
-      const savedDoc = await prisma.doctorRecommendation.create({
-        data: {
-          patientId: patient.id,
-          doctorName: doctor.doctorName,
-          clinicName: doctor.clinicName,
-          specialization: doctor.specialization,
-          gender: doctor.gender,
-          experience: doctor.experience,
-          address: doctor.address,
-          zipCode: doctor.zipCode,
-          distance: doctor.distance,
-          phoneNumber: doctor.phoneNumber,
-          email: doctor.email,
-          website: doctor.website,
-          rating: doctor.rating,
-          reviewCount: doctor.reviewCount,
-          acceptsInsurance: doctor.acceptsInsurance,
-          averageWaitTime: doctor.averageWaitTime,
-          offersTelemedicine: doctor.offersTelemedicine,
-          virtualConsultFee: doctor.virtualConsultFee,
-          consultationFee: doctor.consultationFee,
-          treatmentCosts: doctor.treatmentCosts,
-          matchScore: doctor.matchScore,
-          matchReason: doctor.matchReasons.join('; ')
+    // Save recommendations to database using safe operation
+    const savedRecommendations = await safeDbOperation(
+      async (prisma) => {
+        const saved = [];
+        for (const doctor of recommendations) {
+          const savedDoc = await prisma.doctorRecommendation.create({
+            data: {
+              patientId: patient.id,
+              doctorName: doctor.doctorName,
+              clinicName: doctor.clinicName,
+              specialization: doctor.specialization,
+              gender: doctor.gender,
+              experience: doctor.experience,
+              address: doctor.address,
+              zipCode: doctor.zipCode,
+              distance: doctor.distance,
+              phoneNumber: doctor.phoneNumber,
+              email: doctor.email,
+              website: doctor.website,
+              rating: doctor.rating,
+              reviewCount: doctor.reviewCount,
+              acceptsInsurance: doctor.acceptsInsurance,
+              averageWaitTime: doctor.averageWaitTime,
+              offersTelemedicine: doctor.offersTelemedicine,
+              virtualConsultFee: doctor.virtualConsultFee,
+              consultationFee: doctor.consultationFee,
+              treatmentCosts: doctor.treatmentCosts,
+              matchScore: doctor.matchScore,
+              matchReason: doctor.matchReasons.join('; ')
+            }
+          });
+          saved.push(savedDoc);
         }
-      });
-      savedRecommendations.push(savedDoc);
-    }
+        return saved;
+      },
+      []
+    );
 
-    // Update patient location data
-    await prisma.patient.update({
-      where: { id: patient.id },
-      data: {
-        zipCode: zipCode,
-        preferredGender: preferredGender,
-        experienceLevel: experienceLevel,
-        specialization: specialization,
-        locationData: {
-          zipCode,
-          searchRadius: maxDistance,
-          lastSearched: new Date().toISOString(),
-          preferences: {
-            preferredGender,
-            experienceLevel,
-            specialization,
-            acceptsInsurance,
-            offersTelemedicine
+    // Update patient location data using safe operation
+    await safeDbOperation(
+      async (prisma) => await prisma.patient.update({
+        where: { id: patient.id },
+        data: {
+          zipCode: zipCode,
+          preferredGender: preferredGender,
+          experienceLevel: experienceLevel,
+          specialization: specialization,
+          locationData: {
+            zipCode,
+            searchRadius: maxDistance,
+            lastSearched: new Date().toISOString(),
+            preferences: {
+              preferredGender,
+              experienceLevel,
+              specialization,
+              acceptsInsurance,
+              offersTelemedicine
+            }
           }
         }
-      }
-    });
+      }),
+      null
+    );
+
+    // Add IDs to recommendations for frontend compatibility
+    const recommendationsWithIds = recommendations.map((doctor, index) => ({
+      ...doctor,
+      id: savedRecommendations[index]?.id || Math.random().toString(36).substr(2, 9),
+      matchReason: doctor.matchReasons.join('; ')
+    }));
 
     return NextResponse.json({
       success: true,
-      recommendations: recommendations,
+      recommendations: recommendationsWithIds,
       searchCriteria: {
         zipCode,
         preferredGender,
@@ -357,7 +430,7 @@ export async function POST(request: NextRequest) {
         acceptsInsurance,
         offersTelemedicine
       },
-      message: `Found ${recommendations.length} doctor recommendations based on your preferences`
+      message: `Found ${recommendationsWithIds.length} doctor recommendations based on your preferences`
     });
 
   } catch (error) {
