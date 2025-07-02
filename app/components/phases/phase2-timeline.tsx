@@ -44,21 +44,61 @@ export default function Phase2Timeline({
     
     if (files.length === 0) return;
 
+    // Validate files before processing
+    const validFiles = [];
+    const invalidFiles = [];
+
     for (const file of files) {
+      // File size validation (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        invalidFiles.push(`${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(2)}MB > 50MB)`);
+        continue;
+      }
+
+      // Enhanced file type validation
+      const supportedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 
+        'image/heic', 'image/heif', 'image/bmp', 'image/tiff',
+        'application/pdf', 'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain', 'application/rtf', 'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/csv'
+      ];
+
+      if (!supportedTypes.includes(file.type) && file.type !== '') {
+        invalidFiles.push(`${file.name}: Unsupported file type (${file.type})`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    // Show validation errors if any
+    if (invalidFiles.length > 0) {
+      toast.error(`Some files were skipped:\n${invalidFiles.join('\n')}`);
+    }
+
+    // Process valid files
+    for (const file of validFiles) {
+      const originalFileName = file.name;
+      const isWhatsAppImage = originalFileName.toLowerCase().includes('whatsapp');
+      
       const newFile: MedicalFile = {
         id: Math.random().toString(36).substr(2, 9),
-        fileName: file.name,
+        fileName: originalFileName.replace(/[^\w\s.-]/g, '_').replace(/\s+/g, '_'),
+        originalFileName: originalFileName,
         fileType: file.type,
         fileSize: file.size,
         fileUrl: URL.createObjectURL(file),
-        category: 'document',
+        category: isWhatsAppImage ? 'whatsapp_image' : 'document',
         uploadedAt: new Date().toISOString(),
         analysisStatus: 'pending'
       };
 
       setUploadedFiles(prev => [...prev, newFile]);
       
-      // Process file with AI
+      // Process file with enhanced AI
       await processFileWithAI(newFile, file);
     }
 
@@ -87,18 +127,42 @@ export default function Phase2Timeline({
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to process file');
-      }
-
       const result = await response.json();
 
-      // Update file with extracted data
+      if (!result.success) {
+        // Handle specific error types
+        let errorMessage = result.details || result.error || 'Processing failed';
+        
+        switch (result.errorCode) {
+          case 'FILE_TOO_LARGE':
+            errorMessage = `File too large: ${result.details}`;
+            break;
+          case 'UNSUPPORTED_FILE_TYPE':
+            errorMessage = `Unsupported file type: ${result.details}`;
+            break;
+          case 'AI_SERVICE_ERROR':
+            errorMessage = 'AI service temporarily unavailable. Please try again later.';
+            break;
+          case 'PATIENT_NOT_FOUND':
+            errorMessage = 'Patient record not found. Please refresh and try again.';
+            break;
+          default:
+            errorMessage = result.details || 'An unexpected error occurred';
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Update file with extracted data and enhanced metadata
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileData.id ? { 
           ...f, 
           analysisStatus: 'completed',
-          extractedData: result.extractedData 
+          extractedData: result.extractedData,
+          processingTime: result.processingTime,
+          confidence: result.extractedData?.confidence,
+          fileName: result.sanitizedFileName || f.fileName,
+          category: result.fileCategory || f.category
         } : f
       ));
 
@@ -107,15 +171,32 @@ export default function Phase2Timeline({
         setTimeline(prev => [...prev, ...result.timelineEvents]);
       }
 
-      toast.success(`Successfully processed ${fileData.fileName}`);
+      // Show success message with processing details
+      const processingTimeMsg = result.processingTime ? 
+        ` (processed in ${(result.processingTime / 1000).toFixed(1)}s)` : '';
+      
+      toast.success(`Successfully processed ${result.originalFileName}${processingTimeMsg}`);
+      
+      // Special handling for WhatsApp images
+      if (result.fileCategory === 'whatsapp_image') {
+        toast.info('WhatsApp image detected - extracted medical information from the image');
+      }
+
     } catch (error) {
       console.error('Error processing file:', error);
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       setUploadedFiles(prev => prev.map(f => 
-        f.id === fileData.id ? { ...f, analysisStatus: 'failed' } : f
+        f.id === fileData.id ? { 
+          ...f, 
+          analysisStatus: 'failed',
+          errorMessage: errorMessage
+        } : f
       ));
       
-      toast.error(`Failed to process ${fileData.fileName}`);
+      // Show detailed error message
+      toast.error(`Failed to process ${fileData.originalFileName || fileData.fileName}: ${errorMessage}`);
     } finally {
       setProcessingFile(null);
       setIsProcessing(false);
@@ -215,7 +296,7 @@ export default function Phase2Timeline({
               ref={fileInputRef}
               onChange={handleFileUpload}
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.bmp,.tiff,.doc,.docx,.txt,.rtf,.xls,.xlsx,.csv"
               className="hidden"
             />
             <Button
@@ -231,7 +312,9 @@ export default function Phase2Timeline({
               <span>{isProcessing ? 'Processing...' : 'Select Files'}</span>
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Supported formats: PDF, JPG, PNG, DOC, DOCX (Max 10MB per file)
+              Supported formats: PDF, JPG, PNG, GIF, WebP, HEIC, DOC, DOCX, TXT, XLS, CSV (Max 50MB per file)
+              <br />
+              <span className="text-green-600 font-medium">✓ WhatsApp images supported</span> - Share medical reports directly from WhatsApp
             </p>
           </div>
         </CardContent>
@@ -259,10 +342,34 @@ export default function Phase2Timeline({
                     animate={{ opacity: 1, y: 0 }}
                     className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
                   >
-                    <div className="flex items-center space-x-3">
-                      <FileIcon className="w-5 h-5 text-primary" />
-                      <div>
-                        <p className="font-medium text-sm">{file.fileName}</p>
+                    <div className="flex items-center space-x-3 flex-1">
+                      <FileIcon className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <p className="font-medium text-sm truncate">
+                            {file.originalFileName || file.fileName}
+                          </p>
+                          {file.category === 'whatsapp_image' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              WhatsApp
+                            </span>
+                          )}
+                          {file.category === 'ultrasound' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              Ultrasound
+                            </span>
+                          )}
+                          {file.category === 'lab_results' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              Lab Report
+                            </span>
+                          )}
+                          {file.category === 'sperm_analysis' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              Sperm Analysis
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                           <span>{(file.fileSize / 1024 / 1024).toFixed(2)} MB</span>
                           <span>•</span>
@@ -270,13 +377,35 @@ export default function Phase2Timeline({
                             <StatusIcon className={`w-3 h-3 ${file.analysisStatus === 'processing' ? 'animate-spin' : ''}`} />
                             <span className="capitalize">{file.analysisStatus}</span>
                           </div>
+                          {file.processingTime && file.analysisStatus === 'completed' && (
+                            <>
+                              <span>•</span>
+                              <span>{(file.processingTime / 1000).toFixed(1)}s</span>
+                            </>
+                          )}
+                          {file.confidence && (
+                            <>
+                              <span>•</span>
+                              <span className={`${
+                                file.confidence > 0.8 ? 'text-green-600' : 
+                                file.confidence > 0.6 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {Math.round(file.confidence * 100)}% confidence
+                              </span>
+                            </>
+                          )}
                         </div>
+                        {file.analysisStatus === 'failed' && file.errorMessage && (
+                          <p className="text-xs text-red-600 mt-1 truncate">
+                            Error: {file.errorMessage}
+                          </p>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-shrink-0">
                       {file.analysisStatus === 'completed' && (
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" title="View extracted data">
                           <Eye className="w-4 h-4" />
                         </Button>
                       )}
@@ -285,6 +414,7 @@ export default function Phase2Timeline({
                         size="sm" 
                         onClick={() => removeFile(file.id)}
                         className="text-red-600 hover:text-red-700"
+                        title="Remove file"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

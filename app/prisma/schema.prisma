@@ -38,12 +38,29 @@ model Patient {
   emotionalState   String?
   financialComfort String?
 
+  // Location-based features
+  zipCode             String?
+  preferredGender     String? // male, female, no_preference
+  experienceLevel     String? // junior, experienced, senior
+  specialization      String?
+  locationData        Json?   // coordinates, nearby clinics
+
+  // Journey tracking
+  currentPhase        Int      @default(1)
+  completedPhases     Int[]
+  journeyStarted      DateTime @default(now())
+  estimatedCompletion DateTime?
+  interfaceMode       String   @default("patient") // patient, doctor
+
   // Medical files and analysis
   medicalFiles    MedicalFile[]
   analysisResults AnalysisResult[]
   timelines       Timeline[]
   pathways        TreatmentPathway[]
   recommendations ClinicalRecommendation[]
+  journeySteps    JourneyStep[]
+  doctorRecommendations DoctorRecommendation[]
+  storyBoard      StoryBoard[]
 
   @@map("patients")
 }
@@ -52,17 +69,21 @@ model MedicalFile {
   id        String   @id @default(cuid())
   patientId String
   fileName  String
+  originalFileName String // Store original filename for WhatsApp images
   fileType  String
   fileSize  Int
   fileUrl   String
-  category  String   // 'document', 'ultrasound', 'sperm_analysis', 'embryo_image'
+  category  String   // 'document', 'ultrasound', 'sperm_analysis', 'embryo_image', 'whatsapp_image'
   uploadedAt DateTime @default(now())
   
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
-  // AI extraction results
+  // Enhanced AI extraction results
   extractedData Json?
   analysisStatus String @default("pending") // pending, processing, completed, failed
+  errorMessage  String? // Store specific error details
+  processingTime Int? // Time taken for AI processing in milliseconds
+  confidence    Float? // AI confidence score
   
   @@map("medical_files")
 }
@@ -112,6 +133,22 @@ model TreatmentPathway {
   priority    Int      @default(0)
   createdAt   DateTime @default(now())
   
+  // Enhanced pathway features
+  evidenceLevel    String?  // high, moderate, low
+  researchLinks    String[] // Array of research paper URLs
+  alternativePaths String[] // Alternative treatment options
+  
+  // Telemedicine integration
+  telemedicineSteps Json? // Which steps can be done remotely
+  inPersonSteps     Json? // Which steps require in-person visit
+  remoteMonitoring  Boolean @default(false)
+  virtualConsults   Boolean @default(false)
+  
+  // Journey integration
+  estimatedDuration String? // "2-3 months"
+  preparationSteps  Json?   // What patient needs to prepare
+  milestones        Json?   // Key checkpoints in treatment
+  
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@map("treatment_pathways")
@@ -139,7 +176,145 @@ model ClinicalRecommendation {
   isActionable   Boolean  @default(true)
   createdAt      DateTime @default(now())
   
+  // Enhanced recommendation features
+  evidenceLevel  String?  // high, moderate, low
+  researchBasis  String?  // Supporting research explanation
+  patientView    String?  // Simplified explanation for patients
+  doctorView     String?  // Detailed clinical explanation
+  
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@map("clinical_recommendations")
+}
+
+// New models for enhanced features
+
+model JourneyStep {
+  id          String   @id @default(cuid())
+  patientId   String
+  step        Int      // Step number in the journey
+  title       String
+  description String
+  status      String   @default("upcoming") // upcoming, current, completed, skipped
+  category    String   // consultation, test, procedure, medication, lifestyle
+  
+  // Timeline information
+  scheduledDate    DateTime?
+  completedDate    DateTime?
+  estimatedDuration String? // "30 minutes", "2 hours", "1 day"
+  
+  // Telemedicine support
+  canBeRemote     Boolean @default(false)
+  requiresInPerson Boolean @default(true)
+  virtualOptions  Json?   // Available virtual consultation options
+  
+  // Patient guidance
+  preparationSteps String[] // What patient needs to do beforehand
+  whatToExpect     String?  // What happens during this step
+  afterCare        String?  // Post-step care instructions
+  
+  // Story board integration
+  iconName        String?  // Lucide icon name for visualization
+  illustrationUrl String?  // URL to illustration image
+  patientTips     String[] // Patient-friendly tips
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("journey_steps")
+}
+
+model DoctorRecommendation {
+  id           String   @id @default(cuid())
+  patientId    String
+  doctorName   String
+  clinicName   String
+  specialization String
+  gender       String   // male, female
+  experience   String   // junior, experienced, senior
+  
+  // Location information
+  address      String
+  zipCode      String
+  distance     Float?   // Distance from patient in km
+  coordinates  Json?    // Lat/lng coordinates
+  
+  // Contact information
+  phoneNumber  String?
+  email        String?
+  website      String?
+  
+  // Ratings and reviews
+  rating       Float?   // Out of 5
+  reviewCount  Int      @default(0)
+  
+  // Availability
+  acceptsInsurance Boolean @default(false)
+  availableSlots   Json?   // Available appointment slots
+  averageWaitTime  String? // "2 weeks", "1 month"
+  
+  // Telemedicine support
+  offersTelemedicine Boolean @default(false)
+  virtualConsultFee  Int?    // Fee for virtual consultation
+  
+  // Cost information
+  consultationFee Int?
+  treatmentCosts  Json? // Estimated costs for different treatments
+  
+  // Match score
+  matchScore   Float?  // How well this doctor matches patient preferences
+  matchReason  String? // Why this doctor was recommended
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("doctor_recommendations")
+}
+
+model StoryBoard {
+  id          String   @id @default(cuid())
+  patientId   String
+  chapter     Int      // Chapter number in the story
+  title       String
+  subtitle    String?
+  description String
+  
+  // Visual elements
+  illustrationUrl String?
+  iconName        String?  // Lucide icon name
+  colorTheme      String?  // Color theme for this chapter
+  
+  // Content for different audiences
+  patientContent String   // Simple, encouraging content for patients
+  partnerContent String?  // Content addressing partner concerns
+  familyContent  String?  // Content for family members
+  
+  // Interactive elements
+  actionItems    String[] // Actionable steps for patients
+  checklistItems String[] // Checklist items for this chapter
+  resources      Json?    // Additional resources and links
+  
+  // Timeline integration
+  estimatedTimeframe String? // "Week 1-2", "Month 2-3"
+  dependencies       String[] // What needs to be completed first
+  
+  // Emotional support
+  encouragementNote String?  // Motivational message
+  commonConcerns    String[] // Address common patient concerns
+  supportTips       String[] // Tips for emotional well-being
+  
+  // Progress tracking
+  isCompleted    Boolean @default(false)
+  completedDate  DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("story_board")
 }

@@ -6,6 +6,10 @@ export interface PatientProfile {
   maleProfile: MaleProfile;
   coupleHistory: CoupleHistory;
   holistic: HolisticAssessment;
+  // Enhanced profile features
+  location?: LocationPreferences;
+  journey?: JourneyProgress;
+  interfaceMode?: 'patient' | 'doctor';
 }
 
 export interface FemaleProfile {
@@ -39,13 +43,17 @@ export interface HolisticAssessment {
 export interface MedicalFile {
   id: string;
   fileName: string;
+  originalFileName?: string;
   fileType: string;
   fileSize: number;
   fileUrl: string;
-  category: 'document' | 'ultrasound' | 'sperm_analysis' | 'embryo_image';
+  category: 'document' | 'ultrasound' | 'sperm_analysis' | 'embryo_image' | 'whatsapp_image' | 'medical_image' | 'lab_results';
   uploadedAt: string;
   extractedData?: any;
   analysisStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  errorMessage?: string;
+  processingTime?: number;
+  confidence?: number;
 }
 
 export interface TimelineEvent {
@@ -71,6 +79,17 @@ export interface TreatmentPathway {
   cons: string[];
   recommendation?: string;
   priority: number;
+  // Enhanced pathway features
+  evidenceLevel?: 'high' | 'moderate' | 'low';
+  researchLinks?: string[];
+  alternativePaths?: string[];
+  telemedicineSteps?: any;
+  inPersonSteps?: any;
+  remoteMonitoring?: boolean;
+  virtualConsults?: boolean;
+  estimatedDuration?: string;
+  preparationSteps?: any;
+  milestones?: any;
 }
 
 export interface AnalysisResult {
@@ -89,6 +108,11 @@ export interface ClinicalRecommendation {
   priority: 'high' | 'medium' | 'low';
   source: 'ai_analysis' | 'clinical_guidelines' | 'patient_history';
   isActionable: boolean;
+  // Enhanced recommendation features
+  evidenceLevel?: 'high' | 'moderate' | 'low';
+  researchBasis?: string;
+  patientView?: string;
+  doctorView?: string;
 }
 
 export interface AIConfiguration {
@@ -168,4 +192,188 @@ export const FINANCIAL_COMFORT = [
   { value: '50000-150000', label: '₹50,000 - ₹1.5 Lakh' },
   { value: '150000-300000', label: '₹1.5 Lakh - ₹3 Lakh' },
   { value: '> 300000', label: 'Over ₹3 Lakh' }
+];
+
+// New interfaces for enhanced features
+
+export interface LocationPreferences {
+  zipCode?: string;
+  preferredGender?: 'male' | 'female' | 'no_preference';
+  experienceLevel?: 'junior' | 'experienced' | 'senior';
+  specialization?: string;
+  maxDistance?: number; // in kilometers
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+export interface JourneyProgress {
+  currentPhase: number;
+  completedPhases: number[];
+  journeyStarted: string;
+  estimatedCompletion?: string;
+  stepsCompleted?: number;
+  totalSteps?: number;
+}
+
+export interface JourneyStep {
+  id: string;
+  patientId: string;
+  step: number;
+  title: string;
+  description: string;
+  status: 'upcoming' | 'current' | 'completed' | 'skipped';
+  category: 'consultation' | 'test' | 'procedure' | 'medication' | 'lifestyle';
+  scheduledDate?: string;
+  completedDate?: string;
+  estimatedDuration?: string;
+  canBeRemote: boolean;
+  requiresInPerson: boolean;
+  virtualOptions?: any;
+  preparationSteps: string[];
+  whatToExpect?: string;
+  afterCare?: string;
+  iconName?: string;
+  illustrationUrl?: string;
+  patientTips: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorRecommendation {
+  id: string;
+  patientId: string;
+  doctorName: string;
+  clinicName: string;
+  specialization: string;
+  gender: 'male' | 'female';
+  experience: 'junior' | 'experienced' | 'senior';
+  address: string;
+  zipCode: string;
+  distance?: number;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  phoneNumber?: string;
+  email?: string;
+  website?: string;
+  rating?: number;
+  reviewCount: number;
+  acceptsInsurance: boolean;
+  availableSlots?: any;
+  averageWaitTime?: string;
+  offersTelemedicine: boolean;
+  virtualConsultFee?: number;
+  consultationFee?: number;
+  treatmentCosts?: any;
+  matchScore?: number;
+  matchReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoryBoard {
+  id: string;
+  patientId: string;
+  chapter: number;
+  title: string;
+  subtitle?: string;
+  description: string;
+  illustrationUrl?: string;
+  iconName?: string;
+  colorTheme?: string;
+  patientContent: string;
+  partnerContent?: string;
+  familyContent?: string;
+  actionItems: string[];
+  checklistItems: string[];
+  resources?: any;
+  estimatedTimeframe?: string;
+  dependencies: string[];
+  encouragementNote?: string;
+  commonConcerns: string[];
+  supportTips: string[];
+  isCompleted: boolean;
+  completedDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TelemedicineSession {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  sessionType: 'consultation' | 'follow_up' | 'monitoring' | 'counseling';
+  scheduledDate: string;
+  duration: number; // in minutes
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  meetingUrl?: string;
+  notes?: string;
+  prescription?: any;
+  nextSteps?: string[];
+  recordingUrl?: string;
+  cost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileUploadError {
+  success: false;
+  error: string;
+  errorCode: string;
+  details: string;
+  processingTime?: number;
+}
+
+export interface FileUploadSuccess {
+  success: true;
+  fileId: string;
+  originalFileName: string;
+  sanitizedFileName: string;
+  fileCategory: string;
+  extractedData: any;
+  timelineEvents: TimelineEvent[];
+  processingTime: number;
+  message: string;
+}
+
+export type FileUploadResponse = FileUploadError | FileUploadSuccess;
+
+// Enhanced constants for new features
+
+export const DOCTOR_PREFERENCES = [
+  { value: 'no_preference', label: 'No Preference' },
+  { value: 'male', label: 'Male Doctor' },
+  { value: 'female', label: 'Female Doctor' }
+];
+
+export const EXPERIENCE_LEVELS = [
+  { value: 'junior', label: 'Junior (1-5 years)' },
+  { value: 'experienced', label: 'Experienced (5-15 years)' },
+  { value: 'senior', label: 'Senior (15+ years)' }
+];
+
+export const SPECIALIZATIONS = [
+  { value: 'reproductive_endocrinology', label: 'Reproductive Endocrinology' },
+  { value: 'ivf_specialist', label: 'IVF Specialist' },
+  { value: 'gynecologist', label: 'Gynecologist' },
+  { value: 'urologist', label: 'Urologist (Male Fertility)' },
+  { value: 'fertility_counselor', label: 'Fertility Counselor' }
+];
+
+export const JOURNEY_PHASES = [
+  { phase: 1, title: 'Patient Profile', description: 'Complete medical and personal history' },
+  { phase: 2, title: 'Medical Timeline', description: 'Upload and organize medical documents' },
+  { phase: 3, title: 'AI Analysis', description: 'Deep analysis of medical data' },
+  { phase: 4, title: 'Clinical Suggestions', description: 'Personalized recommendations' },
+  { phase: 5, title: 'Treatment Pathways', description: 'Detailed treatment plans and options' }
+];
+
+export const STORY_BOARD_THEMES = [
+  { value: 'hopeful', label: 'Hopeful Journey', color: '#10B981' },
+  { value: 'scientific', label: 'Scientific Approach', color: '#3B82F6' },
+  { value: 'supportive', label: 'Supportive Care', color: '#8B5CF6' },
+  { value: 'empowering', label: 'Empowering Choice', color: '#F59E0B' }
 ];

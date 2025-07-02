@@ -28,7 +28,7 @@ import Phase1Profile from './phases/phase1-profile';
 import Phase2Timeline from './phases/phase2-timeline';
 import Phase3Analysis from './phases/phase3-analysis';
 import Phase4Suggestions from './phases/phase4-suggestions';
-import Phase5Pathways from './phases/phase5-pathways';
+import Phase5EnhancedPathways from './phases/phase5-enhanced-pathways';
 
 const phases = [
   {
@@ -240,10 +240,8 @@ export default function FertilityPlanner() {
         return <Phase4Suggestions {...commonProps} />;
       case 5:
         return (
-          <Phase5Pathways
+          <Phase5EnhancedPathways
             {...commonProps}
-            treatmentPathways={treatmentPathways}
-            calculatePathways={handleCalculatePathways}
           />
         );
       default:

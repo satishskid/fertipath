@@ -9,10 +9,13 @@ import {
   Brain, 
   RefreshCw,
   Activity,
-  Stethoscope
+  Stethoscope,
+  MapPin,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -399,6 +402,136 @@ export default function Phase1Profile({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Location Preferences */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              <span>Location & Doctor Preferences</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="zipCode">Your Zip Code</Label>
+                <Input
+                  id="zipCode"
+                  placeholder="e.g., 400001"
+                  value={patientProfile.location?.zipCode || ''}
+                  onChange={(e) => updatePatientProfile({
+                    location: {
+                      ...patientProfile.location,
+                      zipCode: e.target.value
+                    }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  For location-based doctor recommendations
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="maxDistance">Maximum Distance (km)</Label>
+                <Select value={patientProfile.location?.maxDistance?.toString() || '50'} 
+                        onValueChange={(value) => updatePatientProfile({
+                          location: {
+                            ...patientProfile.location,
+                            maxDistance: parseInt(value)
+                          }
+                        })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select distance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">Within 10 km</SelectItem>
+                    <SelectItem value="25">Within 25 km</SelectItem>
+                    <SelectItem value="50">Within 50 km</SelectItem>
+                    <SelectItem value="100">Within 100 km</SelectItem>
+                    <SelectItem value="200">Within 200 km</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="preferredGender">Doctor Gender Preference</Label>
+                <Select value={patientProfile.location?.preferredGender || 'no_preference'} 
+                        onValueChange={(value) => updatePatientProfile({
+                          location: {
+                            ...patientProfile.location,
+                            preferredGender: value as 'male' | 'female' | 'no_preference'
+                          }
+                        })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select preference" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no_preference">No Preference</SelectItem>
+                    <SelectItem value="female">Female Doctor</SelectItem>
+                    <SelectItem value="male">Male Doctor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="experienceLevel">Experience Level Preference</Label>
+                <Select value={patientProfile.location?.experienceLevel || 'experienced'} 
+                        onValueChange={(value) => updatePatientProfile({
+                          location: {
+                            ...patientProfile.location,
+                            experienceLevel: value as 'junior' | 'experienced' | 'senior'
+                          }
+                        })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="junior">Junior (1-5 years)</SelectItem>
+                    <SelectItem value="experienced">Experienced (5-15 years)</SelectItem>
+                    <SelectItem value="senior">Senior (15+ years)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="specialization">Specialization Preference</Label>
+                <Select value={patientProfile.location?.specialization || 'reproductive_endocrinology'} 
+                        onValueChange={(value) => updatePatientProfile({
+                          location: {
+                            ...patientProfile.location,
+                            specialization: value
+                          }
+                        })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select specialization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="reproductive_endocrinology">Reproductive Endocrinology</SelectItem>
+                    <SelectItem value="ivf_specialist">IVF Specialist</SelectItem>
+                    <SelectItem value="gynecologist">Gynecologist</SelectItem>
+                    <SelectItem value="urologist">Urologist (Male Fertility)</SelectItem>
+                    <SelectItem value="fertility_counselor">Fertility Counselor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg">
+              <Info className="w-5 h-5 text-blue-600" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium">Why we ask for location preferences:</p>
+                <p>This helps us recommend fertility specialists and clinics in your area, 
+                   along with telemedicine options and estimated costs specific to your region.</p>
               </div>
             </div>
           </CardContent>
