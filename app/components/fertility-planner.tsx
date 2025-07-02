@@ -29,6 +29,7 @@ import Phase2Timeline from './phases/phase2-timeline';
 import Phase3Analysis from './phases/phase3-analysis';
 import Phase4Suggestions from './phases/phase4-suggestions';
 import Phase5EnhancedPathways from './phases/phase5-enhanced-pathways';
+import Phase6EnhancedFeatures from './phases/phase6-enhanced-features';
 
 const phases = [
   {
@@ -65,6 +66,13 @@ const phases = [
     description: 'Personalized treatment options',
     icon: Target,
     color: 'bg-red-500'
+  },
+  {
+    id: 6,
+    title: 'Enhanced Features',
+    description: 'Remote care and advanced tools',
+    icon: Sparkles,
+    color: 'bg-purple-600'
   }
 ];
 
@@ -102,7 +110,7 @@ export default function FertilityPlanner() {
   }, [phaseCompletion]);
 
   const proceedToNextPhase = useCallback(() => {
-    if (currentPhase < 5 && canProceedToPhase(currentPhase + 1)) {
+    if (currentPhase < 6 && canProceedToPhase(currentPhase + 1)) {
       setCurrentPhase(prev => prev + 1);
     }
   }, [currentPhase, canProceedToPhase]);
@@ -205,11 +213,11 @@ export default function FertilityPlanner() {
       {/* Progress bar */}
       <div className="w-full max-w-2xl mx-auto">
         <Progress 
-          value={(Object.keys(phaseCompletion).length / 5) * 100} 
+          value={(Object.keys(phaseCompletion).length / 6) * 100} 
           className="h-2"
         />
         <p className="text-center text-sm text-gray-600 mt-2">
-          {Object.keys(phaseCompletion).length} of 5 phases completed
+          {Object.keys(phaseCompletion).length} of 6 phases completed
         </p>
       </div>
     </div>
@@ -242,6 +250,13 @@ export default function FertilityPlanner() {
         return (
           <Phase5EnhancedPathways
             {...commonProps}
+          />
+        );
+      case 6:
+        return (
+          <Phase6EnhancedFeatures
+            {...commonProps}
+            treatmentPathways={treatmentPathways}
           />
         );
       default:
@@ -322,7 +337,7 @@ export default function FertilityPlanner() {
                 <span>New Patient</span>
               </Button>
 
-              {currentPhase < 5 && (
+              {currentPhase < 6 && (
                 <Button
                   onClick={proceedToNextPhase}
                   disabled={!canProceedToPhase(currentPhase + 1)}

@@ -61,6 +61,14 @@ model Patient {
   journeySteps    JourneyStep[]
   doctorRecommendations DoctorRecommendation[]
   storyBoard      StoryBoard[]
+  
+  // Enhanced features relationships
+  patientChoices        PatientChoice[]
+  manualDataEntries     ManualDataEntry[]
+  personalizedTimelines PersonalizedTimeline[]
+  remoteCareSession     RemoteCareSession[]
+  providerReviews       ProviderReview[]
+  journeyMilestones     PatientJourneyMilestone[]
 
   @@map("patients")
 }
@@ -317,4 +325,270 @@ model StoryBoard {
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@map("story_board")
+}
+
+// New models for enhanced features
+
+model PatientChoice {
+  id               String   @id @default(cuid())
+  patientId        String
+  treatmentPathwayId String
+  
+  // Choice details
+  selectedOption   String   // IUI, IVF, FET, etc.
+  choiceReason     String[] // cost, timeline, success_rate, invasiveness, etc.
+  reasoning        String?  // Patient's explanation for their choice
+  confidence       Float?   // How confident they are (1-10)
+  
+  // Decision factors importance (1-10 scale)
+  costImportance       Int? @default(5)
+  timelineImportance   Int? @default(5)
+  successRateImportance Int? @default(5)
+  invasivenessImportance Int? @default(5)
+  
+  // Alternative options considered
+  alternativesConsidered String[] // Other options they looked at
+  
+  // Timeline preferences
+  preferredStartDate DateTime?
+  maxTimelineMonths  Int?     // Maximum timeline they're willing to accept
+  
+  // Additional preferences
+  additionalConcerns String?  // Any other concerns or requirements
+  partnerInvolvement String?  // Level of partner support/involvement
+  
+  // Decision status
+  status        String   @default("pending") // pending, confirmed, changed
+  decisionDate  DateTime @default(now())
+  lastModified  DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("patient_choices")
+}
+
+model ManualDataEntry {
+  id           String   @id @default(cuid())
+  patientId    String
+  entryType    String   // lab_results, ultrasound, consultation_notes, etc.
+  
+  // Data source
+  sourceType   String   // manual_entry, copy_paste, form_input
+  originalText String?  // Original pasted/entered text
+  
+  // Structured data
+  structuredData Json   // Parsed and structured medical data
+  
+  // Validation and quality
+  isValidated    Boolean @default(false)
+  validatedBy    String? // Staff member who validated
+  validatedAt    DateTime?
+  confidence     Float?  // Confidence in the data accuracy
+  
+  // Processing details
+  aiProcessed    Boolean @default(false)
+  aiExtracted    Json?   // AI-extracted structured data
+  manualOverride Boolean @default(false) // If manual data overrides AI
+  
+  // Metadata
+  entryDate      DateTime @default(now())
+  testDate       DateTime? // Date when the test/procedure was done
+  facilityName   String?   // Where the test was done
+  doctorName     String?   // Doctor who ordered/performed test
+  
+  // Timeline integration
+  timelineEventId String? // Link to timeline event if created
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("manual_data_entries")
+}
+
+model PersonalizedTimeline {
+  id               String   @id @default(cuid())
+  patientId        String
+  treatmentPathway String   // IUI, IVF, FET, etc.
+  
+  // Timeline details
+  totalDuration    String   // "3-4 months"
+  startDate        DateTime?
+  estimatedEndDate DateTime?
+  
+  // Milestones and phases
+  phases           Json     // Array of phases with dates and tasks
+  milestones       Json     // Key milestones with expected dates
+  
+  // Personalization factors
+  patientAge       Int?
+  medicalHistory   Json?    // Relevant medical history affecting timeline
+  selectedOptions  Json?    // Patient's selected preferences
+  
+  // Progress tracking
+  currentPhase     String?  // Current phase name
+  completedPhases  String[] // List of completed phases
+  upcomingTasks    Json?    // Next tasks/appointments
+  
+  // Adaptive timeline
+  delays           Json?    // Any delays and reasons
+  adjustments      Json?    // Timeline adjustments made
+  actualDates      Json?    // Actual vs estimated dates
+  
+  // Advice and guidance
+  phaseAdvice      Json?    // Advice for each phase
+  preparationTips  Json?    // Preparation tips for upcoming phases
+  recoveryGuidance Json?    // Recovery guidance for procedures
+  
+  // Status
+  isActive         Boolean @default(true)
+  status          String   @default("draft") // draft, active, completed, cancelled
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("personalized_timelines")
+}
+
+model RemoteCareSession {
+  id            String   @id @default(cuid())
+  patientId     String
+  sessionType   String   // blood_test_upload, consultation, medication_check, etc.
+  
+  // Session details
+  title         String
+  description   String?
+  category      String   // monitoring, consultation, results_review, etc.
+  
+  // Remote capabilities
+  canBeRemote   Boolean  @default(true)
+  requiresInPerson Boolean @default(false)
+  
+  // Files and uploads
+  uploadedFiles Json?    // Files uploaded by patient
+  analysisResults Json?  // AI analysis of uploaded files
+  
+  // Provider review
+  reviewedBy    String?  // Provider who reviewed
+  reviewedAt    DateTime?
+  providerNotes String?  // Provider's notes
+  recommendations String? // Provider recommendations
+  
+  // Follow-up actions
+  followUpRequired Boolean @default(false)
+  followUpType     String? // in_person_visit, another_remote_session, etc.
+  followUpDate     DateTime?
+  
+  // Communication
+  messages      Json?    // Messages between patient and provider
+  lastMessage   DateTime?
+  
+  // Status tracking
+  status        String   @default("pending") // pending, in_progress, completed, requires_attention
+  priority      String   @default("normal") // low, normal, high, urgent
+  
+  scheduledDate DateTime?
+  completedDate DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("remote_care_sessions")
+}
+
+model ProviderReview {
+  id               String   @id @default(cuid())
+  patientId        String
+  providerId       String   // Staff member ID
+  reviewType       String   // file_review, consultation, treatment_plan, etc.
+  
+  // Review details
+  title            String
+  findings         String?  // Provider's findings
+  recommendations  String?  // Provider's recommendations
+  
+  // Files reviewed
+  reviewedFileIds  String[] // IDs of files reviewed
+  
+  // Assessment
+  urgencyLevel     String   @default("normal") // low, normal, high, urgent
+  actionRequired   Boolean  @default(false)
+  actionItems      String[] // Specific actions needed
+  
+  // Treatment impact
+  treatmentChanges Boolean  @default(false) // If treatment plan changes needed
+  newRecommendations Json? // New treatment recommendations
+  
+  // Communication
+  patientNotified  Boolean  @default(false)
+  notificationSent DateTime?
+  patientResponse  String?  // Patient's response to review
+  
+  // Follow-up
+  followUpRequired Boolean  @default(false)
+  followUpDate     DateTime?
+  followUpType     String?  // appointment, remote_session, call, etc.
+  
+  // Provider details
+  providerName     String
+  providerRole     String   // doctor, nurse, technician, etc.
+  reviewDuration   Int?     // Minutes spent on review
+  
+  status           String   @default("draft") // draft, submitted, patient_notified
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("provider_reviews")
+}
+
+model PatientJourneyMilestone {
+  id                String   @id @default(cuid())
+  patientId         String
+  milestoneType     String   // initial_consultation, first_cycle, transfer, pregnancy_test, etc.
+  
+  // Milestone details
+  title             String
+  description       String?
+  category          String   // consultation, procedure, test, medication, milestone
+  
+  // Expected vs actual
+  expectedDate      DateTime?
+  actualDate        DateTime?
+  status            String   @default("upcoming") // upcoming, completed, delayed, skipped
+  
+  // Progress tracking
+  progressPercent   Int      @default(0) // 0-100%
+  tasksCompleted    Int      @default(0)
+  totalTasks        Int      @default(1)
+  
+  // Patient experience
+  patientNotes      String?  // Patient's notes about this milestone
+  satisfactionScore Int?     // 1-10 satisfaction score
+  experienceRating  String?  // excellent, good, fair, poor
+  
+  // Clinical data
+  clinicalNotes     String?  // Provider's clinical notes
+  outcomes          Json?    // Clinical outcomes/results
+  complications     String?  // Any complications noted
+  
+  // Next steps
+  nextMilestone     String?  // Next expected milestone
+  preparationNeeded Json?    // What patient needs to prepare
+  adviceGiven       String?  // Advice given to patient
+  
+  // Remote care integration
+  wasRemote         Boolean  @default(false)
+  remoteSessionId   String?  // Link to remote care session if applicable
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("patient_journey_milestones")
 }

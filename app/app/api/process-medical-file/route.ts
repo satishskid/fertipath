@@ -252,54 +252,109 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Call AI API with enhanced error handling
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify(aiRequest),
-    });
+    // Enhanced retry mechanism for AI API calls
+    async function retryAIRequest(aiRequest: any, maxRetries = 3): Promise<any> {
+      let lastError;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
+            },
+            body: JSON.stringify(aiRequest),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`AI API failed with status ${response.status}: ${errorText}`);
+          }
+
+          const result = await response.json();
+          
+          if (!result.choices?.[0]?.message?.content) {
+            throw new Error('Invalid AI response format - missing content');
+          }
+
+          return result;
+        } catch (error) {
+          lastError = error;
+          console.error(`AI API attempt ${attempt} failed:`, error);
+          
+          // Wait before retry (exponential backoff)
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          }
+        }
+      }
+      
+      throw lastError;
+    }
+
+    // Enhanced JSON parsing with robust cleanup
+    function parseAIResponse(content: string): any {
+      try {
+        // Clean up the response content
+        let jsonContent = content.trim();
+        
+        // Remove markdown code blocks if present
+        jsonContent = jsonContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        jsonContent = jsonContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        
+        // Remove any trailing commas and fix common JSON issues
+        jsonContent = jsonContent.replace(/,(\s*[}\]])/g, '$1');
+        jsonContent = jsonContent.replace(/\n/g, '').replace(/\r/g, '');
+        
+        // Ensure the JSON starts with { and ends with }
+        if (!jsonContent.startsWith('{')) {
+          const startIndex = jsonContent.indexOf('{');
+          if (startIndex !== -1) {
+            jsonContent = jsonContent.substring(startIndex);
+          }
+        }
+        
+        if (!jsonContent.endsWith('}')) {
+          const endIndex = jsonContent.lastIndexOf('}');
+          if (endIndex !== -1) {
+            jsonContent = jsonContent.substring(0, endIndex + 1);
+          }
+        }
+        
+        return JSON.parse(jsonContent);
+      } catch (error) {
+        console.error('JSON parsing failed:', error);
+        throw new Error(`Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown parsing error'}`);
+      }
+    }
 
     let aiResult, extractedData;
     const processingTime = Date.now() - processingStartTime;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`AI API failed with status ${response.status}: ${errorText}`);
-    }
-
     try {
-      aiResult = await response.json();
+      // Call AI API with retry mechanism
+      console.log('Starting AI document processing...');
+      aiResult = await retryAIRequest(aiRequest);
       
-      if (!aiResult.choices?.[0]?.message?.content) {
-        throw new Error('Invalid AI response format');
-      }
-
-      // Robust JSON parsing with cleanup
-      let jsonContent = aiResult.choices[0].message.content.trim();
+      // Parse the AI response
+      extractedData = parseAIResponse(aiResult.choices[0].message.content);
       
-      // Remove markdown code blocks if present
-      jsonContent = jsonContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      jsonContent = jsonContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    } catch (aiError) {
+      console.error('AI processing error:', aiError);
       
-      // Remove any trailing commas and fix common JSON issues
-      jsonContent = jsonContent.replace(/,(\s*[}\]])/g, '$1');
-      
-      extractedData = JSON.parse(jsonContent);
-      
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      
-      // Create fallback structured data
+      // Create enhanced fallback structured data based on file category
       extractedData = {
         date: new Date().toISOString().split('T')[0],
         type: fileCategory.replace('_', ' '),
         category: 'consultation',
+        title: `${fileCategory.replace('_', ' ')} - ${originalFileName}`,
         findings: `Document uploaded successfully. Original filename: ${originalFileName}`,
-        notes: 'AI processing encountered an issue, but file was uploaded successfully.',
-        confidence: 0.5
+        details: 'AI processing temporarily unavailable. Manual review recommended.',
+        notes: 'Document has been saved and is ready for manual review.',
+        confidence: 0.0,
+        processing_status: 'fallback',
+        error_note: 'AI analysis will be available shortly'
       };
     }
 
