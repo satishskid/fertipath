@@ -113,8 +113,8 @@ export default function StoryBoardJourney({
     return themes[theme as keyof typeof themes] || themes.hopeful;
   };
 
-  const currentChapter = storyBoardChapters.find(c => c.chapter === selectedChapter);
-  const completedChapters = storyBoardChapters.filter(c => c.isCompleted).length;
+  const currentChapter = storyBoardChapters.find((c: StoryBoard) => c.chapter === selectedChapter);
+  const completedChapters = storyBoardChapters.filter((c: StoryBoard) => c.isCompleted).length;
   const progressPercentage = storyBoardChapters.length > 0 ? (completedChapters / storyBoardChapters.length) * 100 : 0;
 
   if (loading) {

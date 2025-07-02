@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       patientChoices: patient.patientChoices,
-      currentChoice: patient.patientChoices.find(choice => choice.status === 'confirmed') || null
+      currentChoice: patient.patientChoices.find((choice: any) => choice.status === 'confirmed') || null
     });
 
   } catch (error) {

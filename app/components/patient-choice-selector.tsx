@@ -26,10 +26,28 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
+interface TreatmentOption {
+  name: string;
+  description: string;
+  successRate: number;
+  timeline: string;
+  costMin?: number;
+  costMax?: number;
+  suitability: number;
+}
+
+interface PatientChoice {
+  id: string;
+  selectedOption: string;
+  confidence: number;
+  status: string;
+  decisionDate: Date;
+}
+
 interface PatientChoiceSelectorProps {
   patientCode: string;
-  treatmentOptions: any[];
-  onChoiceSelected?: (choice: any) => void;
+  treatmentOptions: TreatmentOption[];
+  onChoiceSelected?: (choice: PatientChoice) => void;
 }
 
 const choiceReasons = [
@@ -177,7 +195,7 @@ export default function PatientChoiceSelector({
     }
   };
 
-  const selectedTreatment = treatmentOptions.find(option => option.name === selectedOption);
+  const selectedTreatment = treatmentOptions.find((option: TreatmentOption) => option.name === selectedOption);
 
   return (
     <div className="space-y-6">
@@ -196,7 +214,7 @@ export default function PatientChoiceSelector({
           <div className="space-y-3">
             <Label>Treatment Options</Label>
             <div className="grid gap-3">
-              {treatmentOptions.map((option) => (
+              {treatmentOptions.map((option: TreatmentOption) => (
                 <motion.div
                   key={option.name}
                   whileHover={{ scale: 1.02 }}
@@ -380,8 +398,8 @@ export default function PatientChoiceSelector({
                 <Label>Which other options did you consider?</Label>
                 <div className="space-y-2">
                   {treatmentOptions
-                    .filter(option => option.name !== selectedOption)
-                    .map((option) => (
+                    .filter((option: TreatmentOption) => option.name !== selectedOption)
+                    .map((option: TreatmentOption) => (
                       <div key={option.name} className="flex items-center space-x-2">
                         <Checkbox
                           id={`alt-${option.name}`}

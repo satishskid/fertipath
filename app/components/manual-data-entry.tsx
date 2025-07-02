@@ -266,12 +266,12 @@ export default function ManualDataEntry({ patientCode, onDataSaved }: ManualData
           {/* Text Entry Area */}
           <div className="space-y-2">
             <Label htmlFor="originalText">
-              Medical Data {entryType && `(${entryTypes.find(t => t.value === entryType)?.label})`}
+              Medical Data {entryType && `(${entryTypes.find((t: any) => t.value === entryType)?.label})`}
             </Label>
             <Textarea
               id="originalText"
               placeholder={entryType ? 
-                `Enter ${entryTypes.find(t => t.value === entryType)?.label.toLowerCase()} data here. You can copy and paste from lab reports, consultation notes, or type manually.` : 
+                `Enter ${entryTypes.find((t: any) => t.value === entryType)?.label.toLowerCase()} data here. You can copy and paste from lab reports, consultation notes, or type manually.` : 
                 'Select a data type first, then enter your medical data here'
               }
               value={originalText}
@@ -332,7 +332,7 @@ export default function ManualDataEntry({ patientCode, onDataSaved }: ManualData
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">Entry Type:</span>
                   <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                    {entryTypes.find(t => t.value === lastResult.dataEntry?.entryType)?.label}
+                    {entryTypes.find((t: any) => t.value === lastResult.dataEntry?.entryType)?.label}
                   </span>
                 </div>
                 

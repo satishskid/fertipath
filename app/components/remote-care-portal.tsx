@@ -29,6 +29,21 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
+interface RemoteCareSession {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  sessionType: string;
+  description?: string;
+  scheduledDate?: string;
+  completedDate?: string;
+  providerNotes?: string;
+  createdAt?: string;
+  recommendations?: string;
+  canBeRemote?: boolean;
+}
+
 interface RemoteCarePortalProps {
   patientCode: string;
 }
@@ -50,7 +65,7 @@ const priorityLevels = [
 
 export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps) {
   const [activeTab, setActiveTab] = useState('new-session');
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<RemoteCareSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   // New session form state
@@ -107,7 +122,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
 
     try {
       // For demo purposes, we'll create the session without actual file upload
-      const filesData = uploadedFiles.map(file => ({
+      const filesData = uploadedFiles.map((file: File) => ({
         name: file.name,
         size: file.size,
         type: file.type
@@ -214,7 +229,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
                     <SelectValue placeholder="Select what you need help with" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sessionTypes.map((type) => {
+                    {sessionTypes.map((type: any) => {
                       const Icon = type.icon;
                       return (
                         <SelectItem key={type.value} value={type.value}>
@@ -258,7 +273,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {priorityLevels.map((level) => (
+                      {priorityLevels.map((level: any) => (
                         <SelectItem key={level.value} value={level.value}>
                           {level.label}
                         </SelectItem>
@@ -303,7 +318,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
                 {uploadedFiles.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Uploaded Files:</p>
-                    {uploadedFiles.map((file, index) => (
+                    {uploadedFiles.map((file: File, index: number) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div className="flex items-center space-x-2">
                           <FileText className="w-4 h-4 text-gray-500" />
@@ -367,7 +382,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
               </div>
             ) : (
               <div className="space-y-4">
-                {sessions.map((session) => (
+                {sessions.map((session: RemoteCareSession) => (
                   <motion.div
                     key={session.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -381,7 +396,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
                               {getStatusIcon(session.status)}
                               <h3 className="font-medium">{session.title}</h3>
                               <Badge 
-                                className={priorityLevels.find(p => p.value === session.priority)?.color}
+                                className={priorityLevels.find((p: any) => p.value === session.priority)?.color}
                               >
                                 {session.priority}
                               </Badge>
@@ -391,7 +406,7 @@ export default function RemoteCarePortal({ patientCode }: RemoteCarePortalProps)
                             
                             <div className="flex items-center space-x-4 text-xs text-gray-500">
                               <span>Type: {session.sessionType.replace('_', ' ')}</span>
-                              <span>Created: {formatDate(session.createdAt)}</span>
+                              <span>Created: {session.createdAt ? formatDate(session.createdAt) : 'N/A'}</span>
                               {session.scheduledDate && (
                                 <span>Scheduled: {formatDate(session.scheduledDate)}</span>
                               )}

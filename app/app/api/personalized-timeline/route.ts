@@ -362,7 +362,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const activeTimeline = patient.personalizedTimelines.find(t => t.isActive && t.status === 'active');
+    const activeTimeline = patient.personalizedTimelines.find((t: any) => t.isActive && t.status === 'active');
 
     return NextResponse.json({
       success: true,

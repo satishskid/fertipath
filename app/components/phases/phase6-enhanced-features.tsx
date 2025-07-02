@@ -261,13 +261,13 @@ export default function Phase6EnhancedFeatures({
         <CardContent className="p-6">
           <div className="flex items-start space-x-4">
             <div className="p-2 bg-purple-500 rounded-lg">
-              {React.createElement(features.find(f => f.id === activeFeature)?.icon || Target, {
+              {React.createElement(features.find((f: any) => f.id === activeFeature)?.icon || Target, {
                 className: "w-5 h-5 text-white"
               })}
             </div>
             <div className="space-y-2">
               <h3 className="font-semibold text-purple-900">
-                {features.find(f => f.id === activeFeature)?.title}
+                {features.find((f: any) => f.id === activeFeature)?.title}
               </h3>
               <div className="text-sm text-purple-800">
                 {activeFeature === 'manual-entry' && (

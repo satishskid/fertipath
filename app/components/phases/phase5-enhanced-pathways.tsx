@@ -250,7 +250,7 @@ export default function Phase5EnhancedPathways({
     ];
   };
 
-  const selectedPathwayData = pathways.find(p => p.id === selectedPathway);
+  const selectedPathwayData = pathways.find((p: TreatmentPathway) => p.id === selectedPathway);
 
   const handleInterfaceModeChange = (newMode: 'patient' | 'doctor') => {
     updatePatientProfile({ interfaceMode: newMode });
