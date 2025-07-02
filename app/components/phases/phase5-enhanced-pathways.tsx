@@ -36,19 +36,36 @@ interface Phase5EnhancedPathwaysProps {
   updatePatientProfile: (updates: Partial<PatientProfile>) => void;
   markPhaseComplete: (phase: number) => void;
   proceedToNextPhase: () => void;
+  markPhaseSkipped?: (phase: number) => void;
+  updateDataCompleteness?: (phase: number, score: number) => void;
+  interfaceMode?: 'patient' | 'doctor';
+  handlePatientChoice?: (choice: any) => void;
+  handleTreatmentSelection?: (treatment: TreatmentPathway) => void;
+  selectedTreatment?: TreatmentPathway | null;
+  patientChoices?: any;
+  treatmentPathways?: TreatmentPathway[];
+  setTreatmentPathways?: (pathways: TreatmentPathway[]) => void;
 }
 
 export default function Phase5EnhancedPathways({ 
   patientProfile, 
   updatePatientProfile, 
   markPhaseComplete,
-  proceedToNextPhase 
+  proceedToNextPhase,
+  markPhaseSkipped,
+  updateDataCompleteness,
+  interfaceMode = 'patient',
+  handlePatientChoice,
+  handleTreatmentSelection,
+  selectedTreatment,
+  patientChoices,
+  treatmentPathways,
+  setTreatmentPathways
 }: Phase5EnhancedPathwaysProps) {
   const [pathways, setPathways] = useState<TreatmentPathway[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPathway, setSelectedPathway] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'pathways' | 'journey' | 'doctors' | 'telemedicine'>('pathways');
-  const [interfaceMode, setInterfaceMode] = useState<'patient' | 'doctor'>(patientProfile.interfaceMode || 'patient');
   const [journeySteps, setJourneySteps] = useState<any[]>([]);
 
   useEffect(() => {
@@ -236,7 +253,6 @@ export default function Phase5EnhancedPathways({
   const selectedPathwayData = pathways.find(p => p.id === selectedPathway);
 
   const handleInterfaceModeChange = (newMode: 'patient' | 'doctor') => {
-    setInterfaceMode(newMode);
     updatePatientProfile({ interfaceMode: newMode });
   };
 
@@ -505,6 +521,180 @@ export default function Phase5EnhancedPathways({
                 )}
               </div>
             </div>
+          )}
+
+          {/* Patient Choice Selection Interface */}
+          {!loading && pathways.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Card className="border-2 border-blue-500 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Heart className="w-6 h-6 text-blue-600" />
+                    <span>Make Your Treatment Choice</span>
+                  </CardTitle>
+                  <p className="text-blue-700">
+                    Help us understand your preferences to provide personalized guidance
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Treatment Selection */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Which treatment option do you prefer?</h4>
+                    <div className="grid gap-3">
+                      {pathways.map((pathway) => (
+                        <label
+                          key={pathway.id}
+                          className={`flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            selectedTreatment?.id === pathway.id
+                              ? 'border-blue-500 bg-blue-100'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="treatment-choice"
+                            value={pathway.id}
+                            checked={selectedTreatment?.id === pathway.id}
+                            onChange={() => handleTreatmentSelection && handleTreatmentSelection(pathway)}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{pathway.name}</p>
+                            <p className="text-sm text-gray-600">{pathway.successRate}% success rate • ₹{pathway.costMin.toLocaleString()}-{pathway.costMax.toLocaleString()}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Factor Importance Rating */}
+                  <div>
+                    <h4 className="font-semibold mb-3">How important are these factors to you?</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {[
+                        { key: 'cost', label: 'Treatment Cost', icon: DollarSign },
+                        { key: 'success_rate', label: 'Success Rate', icon: TrendingUp },
+                        { key: 'timeline', label: 'Treatment Timeline', icon: Clock },
+                        { key: 'invasiveness', label: 'Procedure Complexity', icon: Activity }
+                      ].map(({ key, label, icon: Icon }) => (
+                        <div key={key} className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Icon className="w-4 h-4 text-gray-600" />
+                            <label className="font-medium text-sm">{label}</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <button
+                                key={rating}
+                                onClick={() => handlePatientChoice && handlePatientChoice({ [`${key}_importance`]: rating })}
+                                className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                  (patientChoices?.[`${key}_importance`] || 0) >= rating
+                                    ? 'bg-blue-500 border-blue-500 text-white'
+                                    : 'border-gray-300 hover:border-blue-400'
+                                }`}
+                              >
+                                <span className="text-xs font-medium">{rating}</span>
+                              </button>
+                            ))}
+                            <span className="text-xs text-gray-500 ml-2">
+                              {(patientChoices?.[`${key}_importance`] || 0) === 1 ? 'Not Important' : 
+                               (patientChoices?.[`${key}_importance`] || 0) === 5 ? 'Very Important' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Confidence Level */}
+                  <div>
+                    <h4 className="font-semibold mb-3">How confident are you about this choice?</h4>
+                    <div className="flex items-center space-x-4">
+                      {[
+                        { value: 'low', label: 'Need more information', color: 'bg-red-100 text-red-800' },
+                        { value: 'medium', label: 'Somewhat confident', color: 'bg-yellow-100 text-yellow-800' },
+                        { value: 'high', label: 'Very confident', color: 'bg-green-100 text-green-800' }
+                      ].map(({ value, label, color }) => (
+                        <button
+                          key={value}
+                          onClick={() => handlePatientChoice && handlePatientChoice({ confidence_level: value })}
+                          className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                            patientChoices?.confidence_level === value
+                              ? `${color} border-current`
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="text-sm font-medium">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Reasoning */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Why did you choose this treatment? (Optional)</h4>
+                    <textarea
+                      rows={3}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      placeholder="Share your thoughts about this treatment choice..."
+                      value={patientChoices?.reasoning || ''}
+                      onChange={(e) => handlePatientChoice && handlePatientChoice({ reasoning: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Partner Involvement */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Partner Involvement</h4>
+                    <div className="flex items-center space-x-4">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={patientChoices?.partner_involved || false}
+                          onChange={(e) => handlePatientChoice && handlePatientChoice({ partner_involved: e.target.checked })}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm">My partner was involved in this decision</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                    <Button 
+                      onClick={() => {
+                        if (updateDataCompleteness) {
+                          updateDataCompleteness(5, selectedTreatment ? 85 : 60);
+                        }
+                        markPhaseComplete(5);
+                        toast.success('Treatment preference saved successfully');
+                        proceedToNextPhase();
+                      }}
+                      className="flex items-center space-x-2"
+                      disabled={!selectedTreatment}
+                    >
+                      <span>Save Choice & Continue</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        if (markPhaseSkipped) markPhaseSkipped(5);
+                        if (updateDataCompleteness) updateDataCompleteness(5, 0);
+                        proceedToNextPhase();
+                      }}
+                      className="flex items-center space-x-2"
+                    >
+                      <span>Skip Choice Selection</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
         </TabsContent>
 

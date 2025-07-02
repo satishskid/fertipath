@@ -13,7 +13,10 @@ import {
   Clock,
   CheckCircle,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  SkipForward,
+  TrendingUp,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,13 +28,19 @@ interface Phase2TimelineProps {
   updatePatientProfile: (updates: Partial<PatientProfile>) => void;
   markPhaseComplete: (phase: number) => void;
   proceedToNextPhase: () => void;
+  markPhaseSkipped?: (phase: number) => void;
+  updateDataCompleteness?: (phase: number, score: number) => void;
+  interfaceMode?: 'patient' | 'doctor';
 }
 
 export default function Phase2Timeline({ 
   patientProfile, 
   updatePatientProfile, 
   markPhaseComplete,
-  proceedToNextPhase 
+  proceedToNextPhase,
+  markPhaseSkipped,
+  updateDataCompleteness,
+  interfaceMode = 'patient'
 }: Phase2TimelineProps) {
   const [uploadedFiles, setUploadedFiles] = useState<MedicalFile[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -209,13 +218,52 @@ export default function Phase2Timeline({
   };
 
   const handleProceedToNext = () => {
+    const dataScore = Math.min((uploadedFiles.length * 25), 100); // 25% per file, max 100%
+    
+    if (updateDataCompleteness) {
+      updateDataCompleteness(2, dataScore);
+    }
+    
     if (uploadedFiles.length > 0) {
       markPhaseComplete(2);
-      toast.success('Medical timeline created successfully');
-      proceedToNextPhase();
+      toast.success(`Medical timeline created successfully with ${uploadedFiles.length} files`);
     } else {
-      toast.error('Please upload at least one medical file');
+      toast.info('Timeline phase completed without uploads - you can add files anytime');
     }
+    
+    proceedToNextPhase();
+  };
+
+  const handleSkipPhase = () => {
+    if (markPhaseSkipped) {
+      markPhaseSkipped(2);
+    }
+    if (updateDataCompleteness) {
+      updateDataCompleteness(2, 0);
+    }
+    proceedToNextPhase();
+  };
+
+  const handleManualEntry = () => {
+    // Create a manual timeline entry
+    const manualEvent: TimelineEvent = {
+      id: `manual-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      title: 'Manual Entry - Medical History',
+      category: 'consultation',
+      details: 'Patient provided medical history verbally without file upload',
+      sourceFile: 'Manual Entry'
+    };
+    
+    setTimeline(prev => [...prev, manualEvent]);
+    
+    if (updateDataCompleteness) {
+      updateDataCompleteness(2, 30); // Manual entry gives 30% data completeness
+    }
+    
+    toast.success('Manual timeline entry added');
+    markPhaseComplete(2);
+    proceedToNextPhase();
   };
 
   const getFileIcon = (fileType: string) => {
@@ -492,32 +540,101 @@ export default function Phase2Timeline({
         </CardContent>
       </Card>
 
-      {/* Completion Actions */}
-      <Card className={`border-2 ${uploadedFiles.length > 0 ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
+      {/* Data Completeness Indicator */}
+      {uploadedFiles.length > 0 && (
+        <Card className="border-2 border-blue-500 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <div>
+                <p className="font-medium text-blue-800">
+                  Data Completeness: {Math.min(uploadedFiles.length * 25, 100)}%
+                </p>
+                <p className="text-sm text-blue-600">
+                  {uploadedFiles.length} files uploaded - {uploadedFiles.length >= 4 ? 'Excellent' : uploadedFiles.length >= 2 ? 'Good' : 'Basic'} data for analysis
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Navigation Options */}
+      <Card className="border-2 border-gray-200">
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Status Summary */}
             <div className="flex items-center space-x-3">
               <CheckCircle className={`w-5 h-5 ${uploadedFiles.length > 0 ? 'text-green-600' : 'text-gray-400'}`} />
               <div>
                 <p className={`font-medium ${uploadedFiles.length > 0 ? 'text-green-800' : 'text-gray-600'}`}>
-                  {uploadedFiles.length > 0 ? 'Files Uploaded' : 'No Files Uploaded'}
+                  {uploadedFiles.length > 0 ? `${uploadedFiles.length} Files Uploaded` : 'No Files Uploaded Yet'}
                 </p>
                 <p className="text-sm text-gray-500">
                   {uploadedFiles.length > 0 
-                    ? `${uploadedFiles.length} medical files processed and timeline generated`
-                    : 'Upload medical files to create patient timeline'
+                    ? `Medical files processed and timeline generated`
+                    : 'You can upload files, skip this step, or add manual timeline entries'
                   }
                 </p>
               </div>
             </div>
-            
-            <Button 
-              onClick={handleProceedToNext}
-              disabled={uploadedFiles.length === 0}
-              className="flex items-center space-x-2"
-            >
-              <span>Continue to Analysis</span>
-            </Button>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Continue with uploads */}
+              <Button 
+                onClick={handleProceedToNext}
+                className="flex items-center space-x-2"
+                variant={uploadedFiles.length > 0 ? "default" : "outline"}
+              >
+                <span>Continue to Analysis</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+
+              {/* Manual Entry Option */}
+              {uploadedFiles.length === 0 && (
+                <Button 
+                  onClick={handleManualEntry}
+                  variant="outline"
+                  className="flex items-center space-x-2 border-blue-200 text-blue-600 hover:bg-blue-50"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Add Manual Entry</span>
+                </Button>
+              )}
+
+              {/* Skip Option */}
+              <Button 
+                onClick={handleSkipPhase}
+                variant="outline"
+                className="flex items-center space-x-2 border-orange-200 text-orange-600 hover:bg-orange-50"
+              >
+                <SkipForward className="w-4 h-4" />
+                <span>Skip This Phase</span>
+              </Button>
+            </div>
+
+            {/* Helpful Information */}
+            <div className="grid md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg text-sm">
+              <div>
+                <p className="font-medium text-gray-700 mb-2">💡 Benefits of uploading files:</p>
+                <ul className="text-gray-600 space-y-1">
+                  <li>• AI extracts key medical information</li>
+                  <li>• Creates comprehensive timeline automatically</li>
+                  <li>• Improves accuracy of recommendations</li>
+                  <li>• Identifies patterns in treatment history</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700 mb-2">⚡ Skip if you prefer to:</p>
+                <ul className="text-gray-600 space-y-1">
+                  <li>• Provide information verbally to doctor</li>
+                  <li>• Focus on current assessment only</li>
+                  <li>• Complete this section later</li>
+                  <li>• Use basic recommendations initially</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
